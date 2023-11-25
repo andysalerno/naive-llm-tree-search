@@ -39,8 +39,8 @@ def test_with_strategy(strategy):
             outputs = model.forward(input_ids)
             next_token_logits = outputs.logits[:, -1, :]
 
-            TOP = 100
             # TOP = len(next_token_logits[0])
+            TOP = 100
 
             topk_values, topk_indices = torch.topk(next_token_logits, TOP)
             topk_values = topk_values[0]
@@ -62,7 +62,6 @@ def test_with_strategy(strategy):
 
             inputs.append(next_token)
 
-            # even with 'skip_special_tokens=True' it is emitting an underscore instead of spaces?
             print(f"next sequence: {inputs}")
 
         if next_token is False:
@@ -74,7 +73,7 @@ def main():
     set_seed(SEED)
     print(f"set seed to: {SEED}")
 
-    test_with_strategy(GreedySampler(model, tokenizer))
+    test_with_strategy(GreedySampler())
 
 
 if __name__ == "__main__":
