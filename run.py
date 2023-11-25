@@ -9,6 +9,7 @@ quant_path = "TheBloke/openchat_3.5-AWQ"
 model = AutoAWQForCausalLM.from_quantized(
     quant_path, fuse_layers=True, return_dict_in_generate=True
 )
+model.eval()
 tokenizer = AutoTokenizer.from_pretrained(quant_path, trust_remote_code=True)
 
 
@@ -26,8 +27,6 @@ test_conversation = [
 def test_with_strategy(strategy):
     # inputs = "A list of colors: red, blue"
     inputs = ["The Beatles were"]
-
-    model.eval()
 
     while True:
         print("tokenizing inputs...")
@@ -57,7 +56,7 @@ def test_with_strategy(strategy):
             next_token = strategy.select_next_token(token_score_mapping)
 
             # hack: why is this necessary?
-            next_token = next_token.replace("_", " ")
+            next_token = next_token.replace("▁", " ")
 
             print(f"selected token: {next_token}")
 
