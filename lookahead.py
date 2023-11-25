@@ -2,6 +2,7 @@ from torch import NumberType
 from transformers import AutoTokenizer
 from awq import AutoAWQForCausalLM
 import torch
+import math
 
 
 class _Node:
@@ -36,32 +37,25 @@ class LookAheadSampler:
             depth=0, max_depth=self.test_depth, node=root
         )
 
-        return best_sequence
+        return best_sequence.removeprefix(current_sequence)
 
     def _evaluate(self, depth: int, max_depth: int, node: _Node):
+        print(f"evaluating sequence: {node.text} with score: {node.score}")
+
         if depth > max_depth:
             return (node.score, node.text)
 
-        current_sequence = []
-        cur_node = node
-        while cur_node is not None:
-            current_sequence.append(cur_node.text)
-            cur_node = cur_node.parent
-
-        current_sequence.reverse()
-        current_sequence = "".join(current_sequence)
-
-        print(f"evaluating sequence: {current_sequence}")
+        modifier = math.log(depth + 2)
 
         # get the mappings of token: value for the top N next tokens
-        next_token_scores = self._get_next_token_scores(current_sequence)
+        next_token_scores = self._get_next_token_scores(node.text)
 
         max_child_score = -99999
         max_child_sequence = None
 
         for k, v in next_token_scores.items():
-            text = current_sequence + k
-            score = node.score + v
+            text = node.text + k
+            score = node.score + (modifier * v)
             child = _Node(text, score=score, parent=node)
             node.children.append(child)
 
@@ -96,6 +90,40 @@ class LookAheadSampler:
             token.replace("▁", " "): score.item()
             for token, score in zip(topk_tokens, topk_values)
         }
+
+        # token healing: back up by one token, get scores again, but this time for tokens that have the final token as a prefix
+        input_ids = self.tokenizer.encode(
+            text, return_tensors="pt", add_special_tokens=False
+        ).to("cuda")
+        last_id = input_ids[-1]
+        input_ids = input_ids[:, :-1]
+        last_token_text = self.tokenizer.convert_ids_to_tokens(
+            last_id, skip_special_tokens=False
+        )[0]
+        print(f"last token text: {last_token_text}")
+        outputs = self.model.forward(input_ids)
+        next_token_logits = outputs.logits[:, -1, :]
+        topk_values, topk_indices = torch.topk(
+            next_token_logits, len(next_token_logits[0])
+        )
+        topk_values = topk_values[0]
+        topk_indices = topk_indices[0]
+        topk_tokens = self.tokenizer.convert_ids_to_tokens(
+            topk_indices, skip_special_tokens=False
+        )
+        token_score_mapping = {
+            token.replace("▁", " "): score.item()
+            for token, score in zip(topk_tokens, topk_values)
+        }
+        tokens_with_prefix = {
+            k: v
+            for (k, v) in token_score_mapping.items()
+            if k.startswith(last_token_text)
+        }
+
+        print(f"matching with prefix: {tokens_with_prefix}")
+
+        token_score_mapping.update(tokens_with_prefix)
 
         return token_score_mapping
 
