@@ -31,7 +31,7 @@ def test_with_strategy(strategy):
     while True:
         print("tokenizing inputs...")
         input_ids = tokenizer.encode(
-            "".join(inputs), return_tensors="pt", add_special_tokens=False
+            "".join(inputs), return_tensors="pt", add_special_tokens=True
         ).to("cuda")
 
         print("generating next logits...")
@@ -47,7 +47,7 @@ def test_with_strategy(strategy):
             topk_indices = topk_indices[0]
 
             topk_tokens = tokenizer.convert_ids_to_tokens(
-                topk_indices, skip_special_tokens=True
+                topk_indices, skip_special_tokens=False
             )
             token_score_mapping = {
                 token: score.item() for token, score in zip(topk_tokens, topk_values)
