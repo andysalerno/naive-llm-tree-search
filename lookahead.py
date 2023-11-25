@@ -37,10 +37,12 @@ class LookAheadSampler:
             depth=0, max_depth=self.test_depth, node=root
         )
 
+        print(f'selecting sequence: "{best_sequence}"')
+
         return best_sequence.removeprefix(current_sequence)
 
     def _evaluate(self, depth: int, max_depth: int, node: _Node):
-        print(f"evaluating sequence: '{node.text}' with score: {node.score}")
+        print(f"    evaluating sequence: '{node.text}' with score: {node.score}")
 
         if depth > max_depth:
             return (node.score, node.text)
@@ -70,14 +72,12 @@ class LookAheadSampler:
 
         return (max_child_score, max_child_sequence)
 
-    def _get_score_for_tokenized_input(self, input_ids) -> (Tensor, Tensor):
+    def _get_score_for_tokenized_input(self, input_ids, n: int) -> (Tensor, Tensor):
         """Given tokenized text, returns a tuple of (topk_values, topk_indices)"""
         outputs = self.model.forward(input_ids)
         next_token_logits = outputs.logits[:, -1, :]
 
-        topk_values, topk_indices = torch.topk(
-            next_token_logits, self.test_top_n_tokens
-        )
+        topk_values, topk_indices = torch.topk(next_token_logits, n)
         topk_values = topk_values[0]
         topk_indices = topk_indices[0]
 
@@ -94,10 +94,12 @@ class LookAheadSampler:
 
     def _get_next_token_scores(self, text: str) -> dict[str, NumberType]:
         input_ids = self.tokenizer.encode(
-            text, return_tensors="pt", add_special_tokens=False
+            text, return_tensors="pt", add_special_tokens=True
         ).to("cuda")
 
-        topk_values, topk_indices = self._get_score_for_tokenized_input(input_ids)
+        topk_values, topk_indices = self._get_score_for_tokenized_input(
+            input_ids, self.test_top_n_tokens
+        )
 
         topk_tokens = self.tokenizer.convert_ids_to_tokens(
             topk_indices, skip_special_tokens=False
@@ -116,7 +118,9 @@ class LookAheadSampler:
 
         # get scores again:
         # todo: these can be cached from previous executions
-        topk_values, topk_indices = self._get_score_for_tokenized_input(input_ids)
+        topk_values, topk_indices = self._get_score_for_tokenized_input(
+            input_ids, n=32002
+        )
 
         # limit the output to only tokens that have some overlap with the final token
         # ... first, get a mapping of { token: score } for the backed up position:
@@ -133,13 +137,15 @@ class LookAheadSampler:
         last_token_text = self.tokenizer.convert_ids_to_tokens(
             last_id, skip_special_tokens=False
         )[-1].replace("▁", " ")
-        print(f"last token from input is: '{last_token_text}'")
+        print(f"        last token from input is: '{last_token_text}'")
         tokens_with_prefix = {
             k: v
             for (k, v) in token_score_mapping_prefix.items()
-            if k.startswith(last_token_text) and k != last_token_text
+            if k.startswith(last_token_text)
+            and k
+            != last_token_text  # uh oh, this is wrong.. e.x. won't select from 196 -> 1966.
         }
-        print(f"matching tokens with prefix: {tokens_with_prefix}")
+        print(f"        matching tokens with prefix: {tokens_with_prefix}")
 
         # combine the overlap tokens into the existing mapping:
         token_score_mapping.update(tokens_with_prefix)
