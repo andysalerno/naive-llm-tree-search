@@ -40,7 +40,7 @@ class LookAheadSampler:
         return best_sequence.removeprefix(current_sequence)
 
     def _evaluate(self, depth: int, max_depth: int, node: _Node):
-        print(f"evaluating sequence: {node.text} with score: {node.score}")
+        print(f"evaluating sequence: '{node.text}' with score: {node.score}")
 
         if depth > max_depth:
             return (node.score, node.text)
@@ -128,20 +128,18 @@ class LookAheadSampler:
             for token, score in zip(topk_tokens, topk_values)
         }
 
-        # ... only scores with overlap:
-        # ... first, turn the token id into text:
+        # prune the mapping to only tokens that have the previous final token as a prefix:
         # todo: is only a 'full overlap' possible, or can 'partial overlap' be possible too?
         last_token_text = self.tokenizer.convert_ids_to_tokens(
             last_id, skip_special_tokens=False
         )[-1].replace("▁", " ")
-        print(f"last token from input is: {last_token_text}")
+        print(f"last token from input is: '{last_token_text}'")
         tokens_with_prefix = {
             k: v
             for (k, v) in token_score_mapping_prefix.items()
-            if k.startswith(last_token_text)
+            if k.startswith(last_token_text) and k != last_token_text
         }
-
-        print(f"matching with prefix: {tokens_with_prefix}")
+        print(f"matching tokens with prefix: {tokens_with_prefix}")
 
         # combine the overlap tokens into the existing mapping:
         token_score_mapping.update(tokens_with_prefix)
