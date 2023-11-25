@@ -24,13 +24,16 @@ test_conversation = [
 
 
 def test_with_strategy(strategy):
-    inputs = "A list of colors: red, blue"
+    # inputs = "A list of colors: red, blue"
+    inputs = ["The Beatles were"]
 
     model.eval()
 
     while True:
         print("tokenizing inputs...")
-        input_ids = tokenizer.encode(inputs, return_tensors="pt").to("cuda")
+        input_ids = tokenizer.encode(
+            "".join(inputs), return_tensors="pt", add_special_tokens=False
+        ).to("cuda")
 
         print("generating next logits...")
         with torch.no_grad():
@@ -44,21 +47,24 @@ def test_with_strategy(strategy):
             topk_values = topk_values[0]
             topk_indices = topk_indices[0]
 
-            topk_tokens = tokenizer.convert_ids_to_tokens(topk_indices)
+            topk_tokens = tokenizer.convert_ids_to_tokens(
+                topk_indices, skip_special_tokens=True
+            )
             token_score_mapping = {
                 token: score.item() for token, score in zip(topk_tokens, topk_values)
             }
-            print(f"mapping: {token_score_mapping}")
 
             next_token = strategy.select_next_token(token_score_mapping)
 
+            # hack: why is this necessary?
+            next_token = next_token.replace("_", " ")
+
             print(f"selected token: {next_token}")
 
-            return
+            inputs.append(next_token)
 
-        return
-
-        next_token = strategy.get_next_token()
+            # even with 'skip_special_tokens=True' it is emitting an underscore instead of spaces?
+            print(f"next sequence: {inputs}")
 
         if next_token is False:
             return
