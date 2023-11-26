@@ -117,35 +117,8 @@ class LookAheadSampler:
             text, return_tensors="pt", add_special_tokens=True
         ).to("cuda")
 
-        topk_values, topk_indices = self._get_score_for_tokenized_input(input_ids, 1)
-        print(
-            f"(1 only) topk_values: {topk_values} topk_indices: {topk_indices} for text '{text}'"
-        )
-        topk_values, topk_indices = self._get_score_for_tokenized_input(input_ids, 1)
-        print(
-            f"(1 only) topk_values: {topk_values} topk_indices: {topk_indices} for text '{text}'"
-        )
-        topk_values, topk_indices = self._get_score_for_tokenized_input(input_ids, 1)
-        print(
-            f"(1 only) topk_values: {topk_values} topk_indices: {topk_indices} for text '{text}'"
-        )
         topk_values, topk_indices = self._get_score_for_tokenized_input(
             input_ids, self.test_top_n_tokens
-        )
-        print(
-            f"topk_values: {topk_values} topk_indices: {topk_indices} for text '{text}'"
-        )
-        topk_values, topk_indices = self._get_score_for_tokenized_input(
-            input_ids, self.test_top_n_tokens
-        )
-        print(
-            f"topk_values: {topk_values} topk_indices: {topk_indices} for text '{text}'"
-        )
-        topk_values, topk_indices = self._get_score_for_tokenized_input(
-            input_ids, self.test_top_n_tokens
-        )
-        print(
-            f"topk_values: {topk_values} topk_indices: {topk_indices} for text '{text}'"
         )
 
         topk_tokens = self.tokenizer.convert_ids_to_tokens(
