@@ -35,11 +35,11 @@ test_conversation = [
 ]
 
 
-def test_with_greedy(max_new_tokens: int):
+def test_with_greedy(input: str, max_new_tokens: int):
     # inputs = "A list of colors: red, blue"
     strategy = GreedySampler()
 
-    inputs = ["The Beatles were"]
+    inputs = [input]
 
     for _ in range(max_new_tokens):
         current_sequence = "".join(inputs)
@@ -80,14 +80,11 @@ def test_with_greedy(max_new_tokens: int):
             next_inputs = "".join(inputs)
             print(f"next inputs: '{next_inputs}'")
 
-        if next_tokens is []:
-            return
-
     return "".join(inputs)
 
 
-def test_with_lookahead(max_new_tokens: int):
-    inputs = ["The Beatles were"]
+def test_with_lookahead(input: str, max_new_tokens: int):
+    inputs = [input]
 
     strategy = LookAheadSampler(model, tokenizer)
 
@@ -96,7 +93,7 @@ def test_with_lookahead(max_new_tokens: int):
 
         print("generating next logits...")
         with torch.no_grad():
-            next_tokens = strategy.select_next_tokens(None, current_sequence)
+            next_tokens = strategy.select_next_tokens(current_sequence)
 
             # hack: why is this necessary?
             next_tokens = next_tokens.replace("▁", " ")
@@ -107,22 +104,27 @@ def test_with_lookahead(max_new_tokens: int):
 
             print(f"next sequence: '{inputs}'")
 
-        if next_tokens is []:
-            return
+    return "".join(inputs)
 
 
 def main():
     SEED = 42
     MAX_NEW_TOKENS = 128
+    INPUT = "The Beatles were"
     set_seed(SEED)
     print(f"set seed to: {SEED}")
 
     print("Testing with: GreedySampler")
-    greedy_result = test_with_greedy(MAX_NEW_TOKENS)
+    greedy_result = test_with_greedy(INPUT, MAX_NEW_TOKENS)
     print(f"greedy result: {greedy_result}")
 
     print("Testing with: LookAheadSampler")
-    test_with_lookahead(MAX_NEW_TOKENS)
+    lookahead_result = test_with_lookahead(INPUT, MAX_NEW_TOKENS)
+    print(f'lookahead result: "{lookahead_result}"')
+
+    print("final results:")
+    print(f"greedy result: '{greedy_result}'")
+    print(f"lookahead result: '{lookahead_result}'")
 
 
 if __name__ == "__main__":

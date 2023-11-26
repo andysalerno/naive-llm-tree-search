@@ -26,7 +26,6 @@ class LookAheadSampler:
 
     def select_next_tokens(
         self,
-        token_score_mapping: dict[str, NumberType],
         current_sequence: str,
     ) -> str:
         root = _Node()
@@ -42,13 +41,7 @@ class LookAheadSampler:
         return best_sequence.removeprefix(current_sequence)
 
     def _evaluate(self, depth: int, max_depth: int, node: _Node):
-        spaces = " " * depth
-        print(
-            f"    {spaces}evaluating sequence: '{node.text}' with score: {node.score}"
-        )
-
         if depth > max_depth:
-            print(f"    {spaces}(end of sequence)")
             return (node.score, node.text)
 
         # give more weight to later states:
@@ -77,27 +70,6 @@ class LookAheadSampler:
 
         return (max_child_score, max_child_sequence)
 
-    def _get_score_for_tokenized_input(self, input_ids, n: int) -> (Tensor, Tensor):
-        """Given tokenized text, returns a tuple of (topk_values, topk_indices)"""
-        with torch.no_grad():
-            outputs = self.model.forward(input_ids)
-        next_token_logits = outputs.logits[:, -1, :]
-
-        topk_values, topk_indices = torch.topk(next_token_logits, n)
-        topk_values = topk_values[0]
-        topk_indices = topk_indices[0]
-
-        return (topk_values, topk_indices)
-
-    def _get_global_token_mapping(self):
-        if self._global_token_mapping is None:
-            # todo: determine range
-            self._global_token_mapping = self.tokenizer.convert_ids_to_tokens(
-                range(32002), skip_special_tokens=False
-            )
-
-        return self._global_token_mapping
-
     def _get_next_token_scores(self, text: str) -> dict[str, NumberType]:
         input_ids = self.tokenizer.encode(
             text, return_tensors="pt", add_special_tokens=True
@@ -117,73 +89,16 @@ class LookAheadSampler:
             for token, score in zip(topk_tokens, topk_values)
         }
 
-        print(f"    found mapping: {token_score_mapping} for text: '{text}'")
-
         return token_score_mapping
 
-        # token healing: back up by one token, get scores again, but this time for tokens that have the final token as a prefix
-        # back up by one:
-        last_id = input_ids[-1]
-        input_ids = input_ids[:, :-1]
+    def _get_score_for_tokenized_input(self, input_ids, n: int) -> (Tensor, Tensor):
+        """Given tokenized text, returns a tuple of (topk_values, topk_indices)"""
+        with torch.no_grad():
+            outputs = self.model.forward(input_ids)
+        next_token_logits = outputs.logits[:, -1, :]
 
-        # get scores again:
-        # todo: these can be cached from previous executions
-        topk_values, topk_indices = self._get_score_for_tokenized_input(
-            input_ids, n=32002
-        )
+        topk_values, topk_indices = torch.topk(next_token_logits, n)
+        topk_values = topk_values[0]
+        topk_indices = topk_indices[0]
 
-        # limit the output to only tokens that have some overlap with the final token
-        # ... first, get a mapping of { token: score } for the backed up position:
-        topk_tokens = self.tokenizer.convert_ids_to_tokens(
-            topk_indices, skip_special_tokens=False
-        )
-        token_score_mapping_prefix = {
-            token.replace("▁", " "): score.item()
-            for token, score in zip(topk_tokens, topk_values)
-        }
-
-        # prune the mapping to only tokens that have the previous final token as a prefix:
-        # todo: is only a 'full overlap' possible, or can 'partial overlap' be possible too?
-        last_token_text = self.tokenizer.convert_ids_to_tokens(
-            last_id, skip_special_tokens=False
-        )[-1].replace("▁", " ")
-        print(f"        last token from input is: '{last_token_text}'")
-
-        # todo: how do we differentiate between these two scenarios:
-        # 1. the next token is correctly identical to the previous token, e.x. 196 -> 1966
-        # 2. the next token was simply re-selecting the previous token, i.e. notorious -> ious
-        tokens_with_prefix = {
-            k: v
-            for (k, v) in token_score_mapping_prefix.items()
-            if k.startswith(last_token_text)
-            and k
-            != last_token_text  # uh oh, this is wrong.. e.x. won't select from 196 -> 1966.
-        }
-        print(f"        matching tokens with prefix: {tokens_with_prefix}")
-
-        # combine the overlap tokens into the existing mapping:
-        token_score_mapping.update(tokens_with_prefix)
-
-        # trim back down to the top N again:
-        # todo: is it valid to compare scores from backup with scores from non-backup?
-        sorted_items = sorted(
-            token_score_mapping.items(), key=lambda x: x[1], reverse=True
-        )
-        top_entries = dict(sorted_items[: self.test_top_n_tokens])
-
-        # bug: if the value select is from the 'healing' section, it can't be simply appended.
-        # it must be merged.
-        return top_entries
-
-    def _get_top_n(
-        token_score_mapping: dict[str, NumberType], n: int
-    ) -> dict[str, NumberType]:
-        """Returns a dictionary of the top N token: score mappings"""
-        # Sort the dictionary by its values in decreasing order and convert it back to a dictionary
-        sorted_dict = dict(
-            sorted(token_score_mapping.items(), key=lambda item: item[1], reverse=True)
-        )
-        # Use list slicing to get the first 'n' items from the sorted dictionary
-        top_n_dict = dict(list(sorted_dict.items())[:n])
-
-        return top_n_dict
+        return (topk_values, topk_indices)
