@@ -10,6 +10,7 @@ class _Node:
         self.score: float = score
         self.children: [_Node] = []
         self.parent: _Node = parent
+        self.tokens: [str] = []
 
 
 class LookAheadSampler:
@@ -78,24 +79,9 @@ class LookAheadSampler:
 
     def _get_score_for_tokenized_input(self, input_ids, n: int) -> (Tensor, Tensor):
         """Given tokenized text, returns a tuple of (topk_values, topk_indices)"""
-        print(f"testing ids: {input_ids}")
         with torch.no_grad():
             outputs = self.model.forward(input_ids)
         next_token_logits = outputs.logits[:, -1, :]
-
-        comma_token = (
-            self.tokenizer.encode(",", return_tensors="pt", add_special_tokens=False)
-            .squeeze()
-            .item()
-        )
-        print(f"comman token id: {comma_token}")
-        comma_token_score = next_token_logits[:, 28725].item()
-        print(f"comma token id: {28725}, value: {comma_token_score}")
-
-        correct_next_token = self.tokenizer.convert_ids_to_tokens(
-            28725, skip_special_tokens=False
-        )
-        print(f'correct value: "{correct_next_token}"')
 
         topk_values, topk_indices = torch.topk(next_token_logits, n)
         topk_values = topk_values[0]

@@ -35,43 +35,69 @@ test_conversation = [
 ]
 
 
-def test_with_strategy(strategy, max_new_tokens: int):
+def test_with_greedy(max_new_tokens: int):
     # inputs = "A list of colors: red, blue"
+    strategy = GreedySampler()
+
     inputs = ["The Beatles were"]
 
     for _ in range(max_new_tokens):
-        print("tokenizing inputs...")
         current_sequence = "".join(inputs)
-        # input_ids = tokenizer.encode(
-        #     current_sequence, return_tensors="pt", add_special_tokens=True
-        # ).to("cuda")
+        input_ids = tokenizer.encode(
+            current_sequence, return_tensors="pt", add_special_tokens=True
+        ).to("cuda")
+
+        with torch.no_grad():
+            outputs = model.forward(input_ids)
+            next_token_logits = outputs.logits[:, -1, :]
+
+            # TOP = len(next_token_logits[0])
+            TOP = 3
+
+            topk_values, topk_indices = torch.topk(next_token_logits, TOP)
+            topk_values = topk_values[0]
+            topk_indices = topk_indices[0]
+
+            topk_tokens = tokenizer.convert_ids_to_tokens(
+                topk_indices, skip_special_tokens=False
+            )
+            token_score_mapping = {
+                token: score.item() for token, score in zip(topk_tokens, topk_values)
+            }
+
+            next_tokens = strategy.select_next_tokens(
+                token_score_mapping, current_sequence
+            )
+
+            next_tokens = "".join(next_tokens)
+
+            # hack: why is this necessary?
+            next_tokens = next_tokens.replace("▁", " ")
+
+            print(f"selected token: '{next_tokens}'")
+
+            inputs.append(next_tokens)
+            next_inputs = "".join(inputs)
+            print(f"next inputs: '{next_inputs}'")
+
+        if next_tokens is []:
+            return
+
+    return "".join(inputs)
+
+
+def test_with_lookahead(max_new_tokens: int):
+    inputs = ["The Beatles were"]
+
+    strategy = LookAheadSampler(model, tokenizer)
+
+    for _ in range(max_new_tokens):
+        current_sequence = "".join(inputs)
 
         print("generating next logits...")
         with torch.no_grad():
-            # print(f"testing ids: {input_ids}")
-            # outputs = model.forward(input_ids)
-            # next_token_logits = outputs.logits[:, -1, :]
-
-            # # TOP = len(next_token_logits[0])
-            # TOP = 3
-
-            # topk_values, topk_indices = torch.topk(next_token_logits, TOP)
-            # topk_values = topk_values[0]
-            # topk_indices = topk_indices[0]
-            # print(f"topk_values: {topk_values} topk_indices: {topk_indices}")
-
-            # topk_tokens = tokenizer.convert_ids_to_tokens(
-            #     topk_indices, skip_special_tokens=False
-            # )
-            # token_score_mapping = {
-            #     token: score.item() for token, score in zip(topk_tokens, topk_values)
-            # }
-
-            # print(f"original token_score_mapping: {token_score_mapping}")
-
             next_tokens = strategy.select_next_tokens(None, current_sequence)
 
-            # next_tokens = "".join(next_tokens)
             # hack: why is this necessary?
             next_tokens = next_tokens.replace("▁", " ")
 
@@ -91,11 +117,12 @@ def main():
     set_seed(SEED)
     print(f"set seed to: {SEED}")
 
-    # print("Testing with: GreedySampler")
-    # test_with_strategy(GreedySampler(), MAX_NEW_TOKENS)
+    print("Testing with: GreedySampler")
+    greedy_result = test_with_greedy(MAX_NEW_TOKENS)
+    print(f"greedy result: {greedy_result}")
 
     print("Testing with: LookAheadSampler")
-    test_with_strategy(LookAheadSampler(model, tokenizer), MAX_NEW_TOKENS)
+    test_with_lookahead(MAX_NEW_TOKENS)
 
 
 if __name__ == "__main__":
