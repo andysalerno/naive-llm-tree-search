@@ -27,9 +27,12 @@ print(f"tokenizer eos: {tokenizer.eos_token}")
 test_conversation = [
     {
         "role": "system",
-        "content": "You are a friendly chatbot who always responds in the style of a thug",
+        "content": "You are a highly capable assistant.",
     },
-    {"role": "user", "content": "How many helicopters can a human eat in one sitting?"},
+    {
+        "role": "user",
+        "content": "Explain how Monte Carlo Tree Search works.",
+    },
 ]
 
 
