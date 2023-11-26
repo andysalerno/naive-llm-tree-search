@@ -1,10 +1,8 @@
 from transformers import (
     set_seed,
     AutoTokenizer,
-    PreTrainedTokenizer,
     AutoModelForCausalLM,
 )
-from awq import AutoAWQForCausalLM
 from greedy import GreedySampler
 import torch
 
@@ -17,7 +15,7 @@ quant_path = "TheBloke/openchat_3.5-AWQ"
 model = AutoModelForCausalLM.from_pretrained(
     quant_path,
     return_dict_in_generate=True,
-    use_flash_attention_2=False,
+    use_flash_attention_2=True,
     device_map="cuda:0",
 )
 model.eval()
@@ -35,6 +33,15 @@ test_conversation = [
 ]
 
 
+TEMPLATE = "{{ bos_token }}{% for message in messages %}{{ 'GPT4 Correct ' + message['role'].title() + ': ' + message['content'] + '<|end_of_turn|>'}}{% endfor %}{% if add_generation_prompt %}{{ 'GPT4 Correct Assistant:' }}{% endif %}"
+chat_text = tokenizer.apply_chat_template(
+    test_conversation,
+    add_generation_prompt=True,
+    tokenize=False,
+    chat_template=TEMPLATE,
+)
+
+
 def test_with_greedy(input: str, max_new_tokens: int):
     # inputs = "A list of colors: red, blue"
     strategy = GreedySampler()
@@ -43,6 +50,10 @@ def test_with_greedy(input: str, max_new_tokens: int):
 
     for _ in range(max_new_tokens):
         current_sequence = "".join(inputs)
+
+        if current_sequence.endswith(tokenizer.eos_token):
+            break
+
         input_ids = tokenizer.encode(
             current_sequence, return_tensors="pt", add_special_tokens=True
         ).to("cuda")
@@ -91,6 +102,9 @@ def test_with_lookahead(input: str, max_new_tokens: int):
     for _ in range(max_new_tokens):
         current_sequence = "".join(inputs)
 
+        if current_sequence.endswith(tokenizer.eos_token):
+            break
+
         print("generating next logits...")
         with torch.no_grad():
             next_tokens = strategy.select_next_tokens(current_sequence)
@@ -114,12 +128,14 @@ def main():
     set_seed(SEED)
     print(f"set seed to: {SEED}")
 
+    print(f"chat text: {chat_text}")
+
     print("Testing with: GreedySampler")
-    greedy_result = test_with_greedy(INPUT, MAX_NEW_TOKENS)
+    greedy_result = test_with_greedy(chat_text, MAX_NEW_TOKENS)
     print(f"greedy result: {greedy_result}")
 
     print("Testing with: LookAheadSampler")
-    lookahead_result = test_with_lookahead(INPUT, MAX_NEW_TOKENS)
+    lookahead_result = test_with_lookahead(chat_text, MAX_NEW_TOKENS)
     print(f'lookahead result: "{lookahead_result}"')
 
     print("final results:")

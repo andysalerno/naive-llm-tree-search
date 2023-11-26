@@ -1,5 +1,6 @@
 transformers>=4.35
 autoawq
+flash-attn
 
 # others:
 chardet
