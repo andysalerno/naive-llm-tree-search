@@ -12,7 +12,6 @@ from lookahead import LookAheadSampler
 quant_path = "TheBloke/openchat_3.5-AWQ"
 
 # Load model
-# model = AutoAWQForCausalLM.from_quantized(
 model = AutoModelForCausalLM.from_pretrained(
     quant_path,
     return_dict_in_generate=True,
@@ -32,7 +31,8 @@ test_conversation = [
     },
     {
         "role": "user",
-        "content": "List the ablums released by The Beatles",
+        "content": "sort the list [4, 5, 28, 12, 343, 29, 199, 404, 3, 101, 73] in ascending numeric order. Your answer must only include the sorted list, no additional text.",
+        #                         [3, 4, 5, 12, 28, 29, 73, 101, 199, 343, 404]",
     },
 ]
 
@@ -159,22 +159,22 @@ def main():
 
     print(f"chat text: {chat_text}")
 
-    # print("Testing with: GreedySampler")
-    # greedy_result = test_with_greedy(chat_text, MAX_NEW_TOKENS)
-    # print(f"greedy result: {greedy_result}")
+    print("Testing with: GreedySampler")
+    greedy_result = test_with_greedy(chat_text, MAX_NEW_TOKENS)
+    print(f"greedy result: {greedy_result}")
 
     # print("Testing with: LookAheadSampler")
     # lookahead_result = test_with_lookahead(chat_text, MAX_NEW_TOKENS)
     # print(f'lookahead result: "{lookahead_result}"')
 
-    print("Testing with: BeamSearch")
-    beam_search_result = test_with_beam_search(chat_text, MAX_NEW_TOKENS)
-    print(f'beam search result: "{beam_search_result}"')
+    # print("Testing with: BeamSearch")
+    # beam_search_result = test_with_beam_search(chat_text, MAX_NEW_TOKENS)
+    # print(f'beam search result: "{beam_search_result}"')
 
     print("final results:")
     # print(f"greedy result: '{greedy_result}'")
     # print(f"lookahead result: '{lookahead_result}'")
-    print(f"beam search result: '{beam_search_result}'")
+    # print(f"beam search result: '{beam_search_result}'")
 
 
 if __name__ == "__main__":

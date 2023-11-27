@@ -20,9 +20,91 @@ Beam search is a strategy that is already supported by the Huggingface Transform
 
 Beam search will fire off multiple concurrent traversals down the tree, and when all N traversals reach a terminal state (i.e., the EOS, or end-of-stream token), it selects the beam that resulted in the highest score.
 
-## Monte Carlo Tree Search
+There are some more advanced flavors of beam search, which you can read about here.
 
-There 
+There's one major downside to beam search, however:
+
+It uses **far** more memory, which is a problem when using consumer GPUs with paltry vram. To put this into perspective, when I use beam search with 3 beams on a 7B Mistral model, quantized to 4bits with AWQ, I've seen my VRAM balloon to 18GB (out of the 24GB on my 3090).
+
+## A Naive Tree Search Approach
+
+There's an alternative to beam search, which uses almost no extra memory, at the expense of a bit more latency.
+
+The concept is almost exactly the same as beam search, except instead of running the beams concurrently, we have a only single worker exploring the state space. This means we use almost no additional memory (again, at the expense of latency).
+
+The implementation looks like something you'd see out of your traditional programming interview, if the question was: "Given a root node of a tree, find the subtree of length N that has the highest total value".
+
+The implementation is so simple that I can show almost the entire thing right here:
+
+```python
+def _evaluate(self, depth: int, max_depth: int, node: _Node) -> Tuple[float, str]:
+    if depth > max_depth:
+        return (node.score, node.text)
+
+    # give more weight to later states:
+    # modifier = math.log(depth + 2)
+    modifier = 1
+
+    # get the mappings of token: value for the top N next tokens
+    # this is where we actually get the token scores from the LLM
+    next_token_scores = self._get_next_token_scores(node.text)
+
+    max_child_score = -float("inf")
+    max_child_sequence = None
+
+    for k, v in next_token_scores.items():
+        text = node.text + k
+        score = node.score + (modifier * v)
+        child = _Node(text, score=score, parent=node)
+        node.children.append(child)
+
+        (child_best_score, child_best_sequence) = self._evaluate(
+            depth + 1, max_depth, child
+        )
+
+        if child_best_score > max_child_score:
+            max_child_score = child_best_score
+            max_child_sequence = child_best_sequence
+
+    return (max_child_score, max_child_sequence)
+```
+
+In this approach, instead of picking the highest-scoring token and calling it a day, we explore the tree with a depth of N (configurable) and find the next N tokens that have the total highest score.
+
+### Monte Carlo Tree Search
+
+Another interesting tree search strategy is Monte Carlo Tree Search.
+
+
+## Results
+
+If you're curious, here are some outputs, all for the exact same input prompt, but using different strategies.
+
+**Prompt:**
+
+*sort the list [4, 5, 28, 12, 343, 29, 199, 404, 3, 101, 73] in ascending numeric order. Your answer must only include the sorted list, no additional text.*
+
+Note: the model used is openchat3.5, AWQ quantized from TheBloke. The openchat3.5 chat template is used to convert the above prompt into the model's expected chat format.
+
+**Expected result:**
+
+[3, 4, 5, 12, 28, 29, 73, 101, 199, 343, 404]
+
+### Greedy Search Result
+[3, 4, 5, 12, 28, 29, 343, 101, 199, 404, 343]
+
+max vram usage: 4.6GB
+
+### Beam Search (3 beams) Result
+[3, 4, 5, 12, 28, 29, 101, 199, 343, 404]
+
+max vram usage: 5.1GB
+
+### Tree search (Depth=3, topK=3) Result
+[3, 4, 5, 12, 28, 29, 73, 101, 199, 343, 404]
+
+max vram usage: 4.6GB
+
 
 ## sources
 - https://huggingface.co/blog/how-to-generate

@@ -15,7 +15,7 @@ class BeamSearchSampler:
         beam_text = ""
 
         with torch.no_grad():
-            config = GenerationConfig(num_beams=1, max_new_tokens=10)
+            config = GenerationConfig(num_beams=3, max_new_tokens=10)
             beam_outputs = self.model.generate(input_ids, generation_config=config)
             print(f"beam count: {len(beam_outputs)}")
             for i, beam_output in enumerate(beam_outputs):

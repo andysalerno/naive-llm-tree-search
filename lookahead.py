@@ -19,7 +19,7 @@ class LookAheadSampler:
         self.tokenizer = tokenizer
 
         # how many top tokens to evaluate
-        self.test_top_n_tokens = 2
+        self.test_top_n_tokens = 3
 
         # for each top token, how deep should it be evaluated
         self.test_depth = 3
