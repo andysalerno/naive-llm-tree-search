@@ -126,12 +126,10 @@ def test_with_lookahead(input: str, max_new_tokens: int):
 
 
 def test_with_beam_search(input: str, max_new_tokens: int):
-    inputs = [input]
-
     strategy = BeamSearchSampler(model, tokenizer)
 
     for _ in range(max_new_tokens):
-        current_sequence = "".join(inputs)
+        current_sequence = input
 
         if current_sequence.endswith(tokenizer.eos_token):
             break
@@ -145,11 +143,11 @@ def test_with_beam_search(input: str, max_new_tokens: int):
 
             print(f"selected token: '{next_tokens}'")
 
-            inputs = [next_tokens]
+            input = next_tokens
 
-            print(f"next sequence: '{inputs}'")
+            print(f"next sequence: '{input}'")
 
-    return "".join(inputs)
+    return input
 
 
 def main():
@@ -171,7 +169,7 @@ def main():
 
     print("Testing with: BeamSearch")
     beam_search_result = test_with_beam_search(chat_text, MAX_NEW_TOKENS)
-    print(f'lookahead result: "{beam_search_result}"')
+    print(f'beam search result: "{beam_search_result}"')
 
     print("final results:")
     # print(f"greedy result: '{greedy_result}'")

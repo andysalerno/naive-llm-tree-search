@@ -1,5 +1,3 @@
-from typing import List, Tuple
-from torch import NumberType, Tensor
 from transformers import PreTrainedTokenizer, AutoModelForCausalLM, GenerationConfig
 import torch
 
