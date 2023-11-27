@@ -3,6 +3,7 @@ from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
 )
+from beam_search import BeamSearchSampler
 from greedy import GreedySampler
 import torch
 
@@ -31,7 +32,7 @@ test_conversation = [
     },
     {
         "role": "user",
-        "content": "Explain how Monte Carlo Tree Search works.",
+        "content": "List the ablums released by The Beatles",
     },
 ]
 
@@ -124,6 +125,33 @@ def test_with_lookahead(input: str, max_new_tokens: int):
     return "".join(inputs)
 
 
+def test_with_beam_search(input: str, max_new_tokens: int):
+    inputs = [input]
+
+    strategy = BeamSearchSampler(model, tokenizer)
+
+    for _ in range(max_new_tokens):
+        current_sequence = "".join(inputs)
+
+        if current_sequence.endswith(tokenizer.eos_token):
+            break
+
+        print("generating next logits...")
+        with torch.no_grad():
+            next_tokens = strategy.select_next_tokens(current_sequence)
+
+            # hack: why is this necessary?
+            next_tokens = next_tokens.replace("▁", " ")
+
+            print(f"selected token: '{next_tokens}'")
+
+            inputs = [next_tokens]
+
+            print(f"next sequence: '{inputs}'")
+
+    return "".join(inputs)
+
+
 def main():
     SEED = 42
     MAX_NEW_TOKENS = 128
@@ -133,17 +161,22 @@ def main():
 
     print(f"chat text: {chat_text}")
 
-    print("Testing with: GreedySampler")
-    greedy_result = test_with_greedy(chat_text, MAX_NEW_TOKENS)
-    print(f"greedy result: {greedy_result}")
+    # print("Testing with: GreedySampler")
+    # greedy_result = test_with_greedy(chat_text, MAX_NEW_TOKENS)
+    # print(f"greedy result: {greedy_result}")
 
-    print("Testing with: LookAheadSampler")
-    lookahead_result = test_with_lookahead(chat_text, MAX_NEW_TOKENS)
-    print(f'lookahead result: "{lookahead_result}"')
+    # print("Testing with: LookAheadSampler")
+    # lookahead_result = test_with_lookahead(chat_text, MAX_NEW_TOKENS)
+    # print(f'lookahead result: "{lookahead_result}"')
+
+    print("Testing with: BeamSearch")
+    beam_search_result = test_with_beam_search(chat_text, MAX_NEW_TOKENS)
+    print(f'lookahead result: "{beam_search_result}"')
 
     print("final results:")
-    print(f"greedy result: '{greedy_result}'")
-    print(f"lookahead result: '{lookahead_result}'")
+    # print(f"greedy result: '{greedy_result}'")
+    # print(f"lookahead result: '{lookahead_result}'")
+    print(f"beam search result: '{beam_search_result}'")
 
 
 if __name__ == "__main__":

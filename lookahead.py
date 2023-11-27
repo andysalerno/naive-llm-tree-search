@@ -1,3 +1,4 @@
+from typing import Any, List, Tuple
 from torch import NumberType, Tensor
 from transformers import PreTrainedTokenizer
 from awq.models.base import BaseAWQForCausalLM
@@ -5,11 +6,11 @@ import torch
 
 
 class _Node:
-    def __init__(self, text=None, score=None, parent=None):
-        self.text: str = text
-        self.score: float = score
-        self.children: [_Node] = []
-        self.parent: _Node = parent
+    def __init__(self, text: str | None = None, score=None, parent: Any | None = None):
+        self.text: str = text or ""
+        self.score: float = score or 0
+        self.children: List[_Node] = []
+        self.parent: _Node | None = parent
 
 
 class LookAheadSampler:
@@ -39,7 +40,7 @@ class LookAheadSampler:
 
         return best_sequence.removeprefix(current_sequence)
 
-    def _evaluate(self, depth: int, max_depth: int, node: _Node):
+    def _evaluate(self, depth: int, max_depth: int, node: _Node) -> Tuple[float, str]:
         if depth > max_depth:
             return (node.score, node.text)
 
@@ -90,7 +91,9 @@ class LookAheadSampler:
 
         return token_score_mapping
 
-    def _get_score_for_tokenized_input(self, input_ids, n: int) -> (Tensor, Tensor):
+    def _get_score_for_tokenized_input(
+        self, input_ids, n: int
+    ) -> Tuple[Tensor, Tensor]:
         """Given tokenized text, returns a tuple of (topk_values, topk_indices)"""
         with torch.no_grad():
             outputs = self.model.forward(input_ids)
