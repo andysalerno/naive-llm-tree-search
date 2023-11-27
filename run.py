@@ -159,17 +159,17 @@ def main():
 
     print(f"chat text: {chat_text}")
 
-    print("Testing with: GreedySampler")
-    greedy_result = test_with_greedy(chat_text, MAX_NEW_TOKENS)
-    print(f"greedy result: {greedy_result}")
+    # print("Testing with: GreedySampler")
+    # greedy_result = test_with_greedy(chat_text, MAX_NEW_TOKENS)
+    # print(f"greedy result: {greedy_result}")
 
     # print("Testing with: LookAheadSampler")
     # lookahead_result = test_with_lookahead(chat_text, MAX_NEW_TOKENS)
     # print(f'lookahead result: "{lookahead_result}"')
 
-    # print("Testing with: BeamSearch")
-    # beam_search_result = test_with_beam_search(chat_text, MAX_NEW_TOKENS)
-    # print(f'beam search result: "{beam_search_result}"')
+    print("Testing with: BeamSearch")
+    beam_search_result = test_with_beam_search(chat_text, MAX_NEW_TOKENS)
+    print(f'beam search result: "{beam_search_result}"')
 
     print("final results:")
     # print(f"greedy result: '{greedy_result}'")
